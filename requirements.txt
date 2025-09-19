@@ -1,0 +1,12 @@
+fastapi
+uvicorn
+pytesseract
+opencv-python-headless
+spacy
+python-dotenv
+pydantic
+paddleocr; extra == "paddle"
+pytest
+ruff
+black
+isort
