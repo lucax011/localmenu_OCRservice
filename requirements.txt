@@ -4,7 +4,7 @@ pytesseract
 opencv-python-headless
 spacy
 python-dotenv
-pydantic
+pydantic<2  # settings.py usa BaseSettings do Pydantic 1
 paddleocr; extra == "paddle"
 pytest
 ruff
