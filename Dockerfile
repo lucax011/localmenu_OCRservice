@@ -1,11 +1,11 @@
 FROM python:3.11-slim
 
-RUN apt-get update && apt-get install -y \
+# Tesseract com o idioma português; DejaVu é a fonte usada nos testes
+RUN apt-get update && apt-get install -y --no-install-recommends \
     tesseract-ocr \
-    libtesseract-dev \
-    poppler-utils \
+    tesseract-ocr-por \
     libglib2.0-0 \
-    build-essential \
+    fonts-dejavu-core \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

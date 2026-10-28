@@ -1,12 +1,15 @@
 fastapi
 uvicorn
+python-multipart  # upload de arquivo (UploadFile)
 pytesseract
 opencv-python-headless
-spacy
+numpy
 python-dotenv
 pydantic<2  # settings.py usa BaseSettings do Pydantic 1
 paddleocr; extra == "paddle"
 pytest
+httpx  # TestClient do FastAPI
+pillow  # gera a imagem de cardápio usada nos testes
 ruff
 black
 isort

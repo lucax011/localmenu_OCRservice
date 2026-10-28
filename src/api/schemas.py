@@ -11,6 +11,7 @@ class Item(BaseModel):
     name: str
     price: float
     description: Optional[str]
+    category: Optional[str]
     confidence: float
     bbox: Optional[BBox]
 

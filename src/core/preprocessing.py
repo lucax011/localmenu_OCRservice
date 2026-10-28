@@ -1,12 +1,14 @@
 import cv2
 import numpy as np
-from typing import List
+from typing import List, Optional, Tuple
 
-def preprocess_image(image_bytes: bytes, steps: List[str]) -> np.ndarray:
+def preprocess_image(image_bytes: bytes, steps: List[str]) -> Tuple[Optional[np.ndarray], List[str]]:
     # Carregar imagem
     arr = np.frombuffer(image_bytes, np.uint8)
     img = cv2.imdecode(arr, cv2.IMREAD_COLOR)
     applied_steps = []
+    if img is None:
+        return None, applied_steps
     if "grayscale" in steps:
         img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         applied_steps.append("grayscale")
@@ -24,8 +26,4 @@ def preprocess_image(image_bytes: bytes, steps: List[str]) -> np.ndarray:
         kernel = np.ones((2,2), np.uint8)
         img = cv2.erode(img, kernel, iterations=1)
         applied_steps.append("erode")
-    # Deskew (simplificado)
-    if "deskew" in steps:
-        # ... deskew logic ...
-        applied_steps.append("deskew")
     return img, applied_steps

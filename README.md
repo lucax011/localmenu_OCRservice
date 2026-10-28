@@ -1,6 +1,6 @@
 # LocalMenu: OCR Service
 
-Microsserviço que transforma a **foto de um cardápio** em itens estruturados (nome, preço, confiança e posição na imagem). O app do restaurante ([B2B](https://github.com/lucax011/localmenu_frontendB2B)) usa o serviço para importar o cardápio sem digitar item por item.
+Microsserviço que transforma a **foto de um cardápio** em itens estruturados (nome, preço, descrição, categoria, confiança e posição na imagem). O app do restaurante ([B2B](https://github.com/lucax011/localmenu_frontendB2B)) usa o serviço, através do backend, para importar o cardápio sem digitar item por item.
 
 ## Ecossistema LocalMenu
 
@@ -14,20 +14,23 @@ Microsserviço que transforma a **foto de um cardápio** em itens estruturados (
 ## Como funciona
 
 1. **Pré-processamento** (OpenCV): escala de cinza, remoção de ruído e limiarização
-2. **OCR**: Tesseract (padrão) ou PaddleOCR, com idioma configurável (`por` por padrão)
-3. **Interpretação** (spaCy `pt_core_news_sm` + regex): identifica o nome do item e o preço no formato `R$ 00,00`
+2. **OCR**: Tesseract (padrão) ou PaddleOCR, com idioma configurável (`por` por padrão); as palavras são agrupadas em linhas, na ordem de leitura
+3. **Interpretação** (regras em `src/core/nlp.py`):
+   - linha que termina em preço (`R$ 24,90`, `24,90`, `1.234,50`) vira um item; pontilhados e traços entre o nome e o preço são removidos
+   - linha curta em maiúsculas sem preço (`LANCHES`) é o título da categoria dos itens seguintes
+   - outra linha sem preço logo abaixo de um item vira a descrição dele
 
 ## Stack
 
 - Python 3.11 + FastAPI + Uvicorn
-- Tesseract / PaddleOCR (opcional), OpenCV, spaCy
+- Tesseract / PaddleOCR (opcional), OpenCV
 - Pydantic 1 para configuração
 - Pytest, Ruff, Black e isort (com pre-commit)
 - Docker e Jenkinsfile
 
 ## Como rodar
 
-Com Docker (já instala o Tesseract):
+Com Docker (já instala o Tesseract com o idioma português):
 
 ```bash
 docker compose up --build    # http://localhost:8000/docs
@@ -38,7 +41,6 @@ Local (precisa do [Tesseract](https://github.com/tesseract-ocr/tesseract) instal
 ```bash
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
-python -m spacy download pt_core_news_sm
 cp .env.example .env
 uvicorn src.main:app --reload --port 8000
 ```
@@ -59,7 +61,7 @@ Exemplo de resposta:
 {
   "source": { "filename": "cardapio.jpg", "size_bytes": 182340, "content_type": "image/jpeg" },
   "items": [
-    { "name": "X-Burger", "price": 24.9, "description": null, "confidence": 0.91,
+    { "name": "X-Burger", "price": 24.9, "description": "Pão, carne e queijo", "category": "Lanches", "confidence": 0.91,
       "bbox": { "x": 40, "y": 120, "w": 300, "h": 28 } }
   ],
   "metadata": { "engine": "tesseract", "lang": "por", "processing_ms": 840,
@@ -77,8 +79,13 @@ Exemplo de resposta:
 | `RETURN_BBOXES` | `true` | Retorna a posição de cada item |
 | `MAX_UPLOAD_MB` | `10` | Tamanho máximo da imagem |
 
+Erros: `415` para arquivo que não é JPEG ou PNG, `413` acima de `MAX_UPLOAD_MB`, `422` para imagem corrompida.
+
 ## Testes
 
 ```bash
-pytest
+pytest                                                    # local; o teste com OCR real é pulado sem Tesseract
+docker build -t localmenu-ocr . && docker run --rm localmenu-ocr python -m pytest   # todos, com Tesseract
 ```
+
+A imagem de cardápio usada nos testes é gerada na hora (`tests/conftest.py`).
