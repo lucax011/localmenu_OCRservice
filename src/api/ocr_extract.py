@@ -1,4 +1,4 @@
-from fastapi import APIRouter, File, UploadFile, Header, Query, Request
+from fastapi import APIRouter, File, Header, HTTPException, Query, Request, UploadFile
 from src.api.schemas import OCRExtractResponse, SourceInfo, Item, Metadata
 from src.core.preprocessing import preprocess_image
 from src.core.ocr import OCRExtractor
@@ -21,11 +21,13 @@ async def extract_ocr(
     start = time.time()
     content = await file.read()
     if len(content) > settings.max_upload_mb * 1024 * 1024:
-        return {"error": "File too large"}
+        raise HTTPException(status_code=413, detail="Arquivo maior que o limite")
     if file.content_type not in ["image/jpeg", "image/png"]:
-        return {"error": "Invalid content type"}
+        raise HTTPException(status_code=415, detail="Envie uma imagem JPEG ou PNG")
     steps = ["grayscale", "denoise", "threshold"] if preprocess else []
     img, applied_steps = preprocess_image(content, steps)
+    if img is None:
+        raise HTTPException(status_code=422, detail="Não foi possível ler a imagem")
     engine = "paddle" if use_paddle else settings.extractor_engine
     ocr = OCRExtractor(engine=engine, lang=lang)
     ocr_result = ocr.extract(img, return_bboxes=return_bboxes)

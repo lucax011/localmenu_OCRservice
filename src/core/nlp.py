@@ -1,31 +1,55 @@
-import spacy
 import re
-from typing import List, Dict, Any
+from typing import Any, Dict, List, Optional
 
-nlp = spacy.load("pt_core_news_sm")
+# Preço no fim da linha: "R$ 24,90", "24,90", "1.234,50", "R$12.90"
+PRICE_RE = re.compile(r"(?:R\s?\$\s*)?(\d{1,3}(?:\.\d{3})+,\d{2}|\d+[,.]\d{2})\s*$")
+# Pontilhado ou traços entre o nome e o preço: "X-Burger ........ 24,90"
+LEADER_RE = re.compile(r"[\s.\-_–—:|]+$")
 
-PRICE_REGEX = re.compile(r"R\$\s?([\d.,]+)")
 
-# Heurística simples para extrair itens de cardápio
-def parse_menu_items(text_blocks: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    items = []
-    for block in text_blocks:
-        doc = nlp(block["text"])
-        price_match = PRICE_REGEX.search(block["text"])
-        price = None
-        if price_match:
-            price_str = price_match.group(1).replace(",", ".")
-            try:
-                price = float(price_str)
-            except ValueError:
-                price = None
-        name = doc.ents[0].text if doc.ents else block["text"]
-        item = {
-            "name": name,
-            "price": price,
-            "description": None,
-            "confidence": block["conf"],
-            "bbox": block.get("bbox"),
-        }
-        items.append(item)
+def parse_price(raw: str) -> float:
+    if "," in raw:
+        raw = raw.replace(".", "").replace(",", ".")
+    return round(float(raw), 2)
+
+
+def is_heading(text: str) -> bool:
+    letters = [c for c in text if c.isalpha()]
+    return bool(letters) and len(text) <= 40 and sum(c.isupper() for c in letters) / len(letters) > 0.8
+
+
+def parse_menu_items(lines: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Transforma linhas lidas pelo OCR em itens de cardápio.
+
+    - linha que termina em preço: um item (nome = o texto antes do preço)
+    - linha curta toda em maiúsculas, sem preço: título de categoria
+    - outra linha sem preço logo depois de um item: descrição desse item
+    """
+    items: List[Dict[str, Any]] = []
+    category: Optional[str] = None
+    last: Optional[Dict[str, Any]] = None
+    for line in lines:
+        text = " ".join(str(line["text"]).split())
+        if not text:
+            continue
+        match = PRICE_RE.search(text)
+        if match:
+            name = LEADER_RE.sub("", text[: match.start()]).strip(" .-")
+            name = re.sub(r"R\s?\$\s*$", "", name).strip(" .-")
+            if not name:
+                continue
+            last = {
+                "name": name,
+                "price": parse_price(match.group(1)),
+                "description": None,
+                "category": category,
+                "confidence": float(line.get("conf", 0)),
+                "bbox": line.get("bbox"),
+            }
+            items.append(last)
+        elif is_heading(text):
+            category = text.title()
+            last = None
+        elif last is not None:
+            last["description"] = f"{last['description']} {text}" if last["description"] else text
     return items
